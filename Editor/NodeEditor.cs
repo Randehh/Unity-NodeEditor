@@ -1,4 +1,5 @@
-﻿using Rondo.NodeEditor.System;
+﻿using Assets.NodeEditor.Editor;
+using Rondo.NodeEditor.System;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -140,13 +141,15 @@ namespace Rondo.NodeEditor.Base {
                     state.isDraggingWindow = true;
                 }
             } else if (e.type == EventType.MouseUp) {
-                if (!state.isDraggingWindow) {
+                if (!state.isDraggingWindow && !state.isDraggingHandle) {
                     if (state.selectedNodes.Count == 1) {
                         //Single node right click
                         GetContextMenu(state.selectedNodes[0]).ShowAsContext();
                     } else if (state.selectedNodes.Count >= 2) {
                         //Multi select, handle as single for now...
                         GetContextMenu(state.mouseOverNode).ShowAsContext();
+                    } else if(state.selectedHandle != null) {
+                        GetContextMenu(state.mouseOverHandle).ShowAsContext();
                     }
                 }
 
@@ -157,11 +160,21 @@ namespace Rondo.NodeEditor.Base {
         #endregion Input
 
         /// <summary>
-        /// Gets the context menu of the current mouse pos. If no node is moused over, parameter will be null
+        /// Gets the context menu of the current mouse over node. If no node is moused over, parameter will be null
         /// </summary>
         /// <param name="n"></param>
         /// <returns></returns>
-        public virtual GenericMenu GetContextMenu(BaseNode n) {
+        public virtual GenericMenu GetContextMenu(BaseNode node) {
+            GenericMenu menu = new GenericMenu();
+            return menu;
+        }
+
+        /// <summary>
+        /// Gets the context menu of the current mouse over handle. If no handle is moused over, parameter will be null
+        /// </summary>
+        /// <param name="handle"></param>
+        /// <returns></returns>
+        public virtual GenericMenu GetContextMenu(NodeHandle handle) {
             GenericMenu menu = new GenericMenu();
             return menu;
         }
