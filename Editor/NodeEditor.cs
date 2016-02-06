@@ -13,8 +13,11 @@ namespace Rondo.NodeEditor.Base {
     /// </summary>
     public class NodeEditor : EditorWindow {
 
+        public static NodeEditor instance;
+
         private List<BaseNode> nodes = new List<BaseNode>();
         private NodeEditorState state = new NodeEditorState();
+        private NodeEditorOptions options = new NodeEditorOptions();
 
         private GUIStyle selectionStyle = new GUIStyle();
 
@@ -22,7 +25,8 @@ namespace Rondo.NodeEditor.Base {
 
             Event e = Event.current;
             state.SetMousePos(e.mousePosition);
-            state.mouseOverNode = GetMouseOverNode();
+
+            UpdateMouseOverState();
 
             if (e.button == 0) {
                 HandleLeftClick(e);
@@ -49,10 +53,7 @@ namespace Rondo.NodeEditor.Base {
                 BaseNode node = nodes[i];
                 node.rect = GUI.Window(i, node.rect, DrawNode, node.windowTag);
 
-                foreach (NodeConnection c in node.GetConnections()) {
-                    if (c.GetTo() == node) continue;
-                    NodeUtils.DrawNodeCurve(c.GetFrom().rect, c.GetTo().rect);
-                }
+                node.DrawHandles();
             }
             Repaint();
         }
@@ -81,17 +82,20 @@ namespace Rondo.NodeEditor.Base {
         #region Input
         private void HandleLeftClick(Event e) {
             if (e.type == EventType.MouseDown) {
-                if (state.mouseOverNode == null) {
-                    state.isSelecting = true;
-                    state.selectedNodes.Clear();
-                    state.startSelection = e.mousePosition;
-                } else {
+                if (state.mouseOverNode != null) {
                     state.isDraggingNodes = true;
                     if (!state.selectedNodes.Contains(state.mouseOverNode)) {
                         //Start dragging on new node
                         state.selectedNodes.Clear();
                         state.selectedNodes.Add(state.mouseOverNode);
                     }
+                } else if (state.mouseOverHandle != null) {
+                    state.isDraggingHandle = true;
+                    state.selectedHandle = state.mouseOverHandle;
+                } else {
+                    state.isSelecting = true;
+                    state.selectedNodes.Clear();
+                    state.startSelection = e.mousePosition;
                 }
             } else if (e.type == EventType.MouseDrag) {
                 if (state.isDraggingNodes) {
@@ -100,6 +104,8 @@ namespace Rondo.NodeEditor.Base {
                         n.Move(e.delta, e.shift);
                     }
                     Repaint();
+                }else if (state.isDraggingHandle) {
+                    state.selectedHandle.Move(state.mousePos);
                 }
             } else if (e.type == EventType.MouseUp) {
                 if (state.isSelecting) {
@@ -118,12 +124,11 @@ namespace Rondo.NodeEditor.Base {
                 //Reset
                 state.isSelecting = false;
                 state.isDraggingNodes = false;
+                state.isDraggingHandle = false;
             }
         }
 
         private void HandleRightClick(Event e) {
-            BaseNode mouseOverNode = GetMouseOverNode();
-
             if (e.type == EventType.MouseDown) {
                 if (!state.isDraggingWindow) {
                     state.startRightClick = e.mousePosition;
@@ -141,7 +146,7 @@ namespace Rondo.NodeEditor.Base {
                         GetContextMenu(state.selectedNodes[0]).ShowAsContext();
                     } else if (state.selectedNodes.Count >= 2) {
                         //Multi select, handle as single for now...
-                        GetContextMenu(GetMouseOverNode()).ShowAsContext();
+                        GetContextMenu(state.mouseOverNode).ShowAsContext();
                     }
                 }
 
@@ -197,16 +202,40 @@ namespace Rondo.NodeEditor.Base {
         }
 
         /// <summary>
-        /// Gets the node over which the mouse currently is
+        /// Updates the mouseover state for handles and nodes
         /// </summary>
         /// <returns></returns>
-        public virtual BaseNode GetMouseOverNode() {
+        public virtual void UpdateMouseOverState() {
+            bool nodeFound = false;
+            bool handleFound = false;
+
             foreach (BaseNode n in nodes) {
                 if (n.rect.Contains(state.mousePos)) {
-                    return n;
+                    state.mouseOverNode = n;
+                    nodeFound = true;
+                }
+
+                foreach(NodeConnection c in n.GetConnections()) {
+                    if (c.GetFromHandle() != null &&
+                        c.GetFromHandle().rect.Contains(state.mousePos)) {
+                        state.mouseOverHandle = c.GetFromHandle();
+                        handleFound = true;
+                    }
+                    if (c.GetToHandle() != null &&
+                        c.GetToHandle().rect.Contains(state.mousePos)) {
+                        state.mouseOverHandle = c.GetToHandle();
+                        handleFound = true;
+                    }
                 }
             }
-            return null;
+
+            if (!nodeFound) {
+                state.mouseOverNode = null;
+            }
+
+            if (!handleFound) {
+                state.mouseOverHandle = null;
+            }
         }
 
         /// <summary>
@@ -248,18 +277,15 @@ namespace Rondo.NodeEditor.Base {
         /// Calculates the starting nodes based on connections, which is accessable via GetState()
         /// </summary>
         public void CalculateStartNodes() {
-            Debug.Log("Getting start nodes from " + nodes.Count + " nodes");
             state.startNodes.Clear();
             foreach (BaseNode n in nodes) {
                 int inConnections = 0;
                 foreach (NodeConnection c in n.GetConnections()) {
-                    if (c.GetTo() == n) {
+                    if (c.GetToNode() == n) {
                         inConnections++;
                     }
                 }
-                Debug.Log("In connections to " + n.windowTag + "= " + inConnections);
                 if (inConnections == 0) {
-                    Debug.Log("Start node: " + n.windowTag);
                     state.startNodes.Add(n);
                 }
             }
@@ -269,14 +295,20 @@ namespace Rondo.NodeEditor.Base {
         /// Get the editor state which contains most frame by frame information
         /// </summary>
         /// <returns></returns>
-        public virtual NodeEditorState GetEditorState() {
+        public NodeEditorState GetEditorState() {
             return state;
+        }
+
+        public NodeEditorOptions GetEditorOptions() {
+            return options;
         }
 
         /// <summary>
         /// Called when the window is opened. Load any information the node editor requires here
         /// </summary>
         public void PrepareWindow() {
+            instance = this;
+
             selectionStyle = new GUIStyle();
             selectionStyle.normal.background = NodeUtils.ColorToTex(new Color(1, 1, 1, 0.5f));
         }

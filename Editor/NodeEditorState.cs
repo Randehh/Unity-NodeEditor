@@ -1,4 +1,5 @@
-﻿using Rondo.NodeEditor.Base;
+﻿using Assets.NodeEditor.Editor;
+using Rondo.NodeEditor.Base;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +9,8 @@ using UnityEngine;
 namespace Rondo.NodeEditor.System {
     public class NodeEditorState {
         public List<BaseNode> selectedNodes = new List<BaseNode>();
+        public NodeHandle selectedHandle = null;
+
         public Vector2 mouseDelta = Vector2.zero;
 
         private Vector2 prevMousePos = Vector2.zero;
@@ -25,11 +28,13 @@ namespace Rondo.NodeEditor.System {
         public Vector2 startSelection = Vector2.zero;
 
         public bool isDraggingNodes = false;
+        public bool isDraggingHandle = false;
 
         public Vector2 startRightClick = Vector2.zero;
         public bool isDraggingWindow = false;
 
         public BaseNode mouseOverNode;
+        public NodeHandle mouseOverHandle;
     }
 
     public enum MouseState {
